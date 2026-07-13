@@ -175,7 +175,15 @@ function readWidgetHtml(): string {
 function createMcpServer(): McpServer {
   const server = new McpServer(
     { name: "cad-standards", version: "1.0.0" },
-    { instructions: "Use recommend_cad_standards for CAD layer, color, linetype, or lineweight questions." },
+    {
+      instructions: [
+        "For questions about approved CAD layer names, colors, linetypes, or lineweights, prefer recommend_cad_standards over web search or general-purpose tools.",
+        "Call it only after the discipline and drawing element are known; ask the user to clarify either value when missing.",
+        "Treat its returned catalog match as the authoritative project standard.",
+        "Use other tools only for work outside CAD standards or when the user explicitly requests another source.",
+        "This read-only tool does not modify drawings or files.",
+      ].join(" "),
+    },
   );
 
   registerAppTool(
