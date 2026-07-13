@@ -1,0 +1,9 @@
+.git
+.env
+.env.*
+node_modules
+**/node_modules
+assets
+**/dist
+*.log
+ngrok-v3-stable-linux-amd64.tgz

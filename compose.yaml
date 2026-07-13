@@ -1,0 +1,23 @@
+services:
+  cad-standards:
+    build:
+      context: .
+      dockerfile: cad_standards_server_node/Dockerfile
+    container_name: cad-standards
+    env_file:
+      - .env.local
+    environment:
+      PORT: "8010"
+    ports:
+      - "8010:8010"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:8010/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped

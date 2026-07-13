@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CAD Standards</title>
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #15201d; color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 12px; background: transparent; }
+    main { overflow: hidden; max-width: 720px; margin: auto; border: 1px solid #dce5df; border-radius: 22px; background: #fbfdfb; box-shadow: 0 18px 50px #1e372d1a; }
+    header { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 14px; padding: 22px; background: linear-gradient(135deg,#eaf4ed,#f8fbf8 68%,#edf2e8); border-bottom: 1px solid #dce5df; }
+    .mark { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 14px; color: #f5fbf7; background: #173f32; font-size: 23px; }
+    .eyebrow { margin: 0; color: #2f6f55; font-size: 11px; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { margin: 2px 0 3px; font-size: 22px; line-height: 1.15; text-transform: capitalize; }
+    .discipline { margin: 0; color: #5d6e67; font-size: 14px; text-transform: capitalize; }
+    .status { padding: 7px 10px; border-radius: 999px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+    .found { color: #1f6747; background: #d9f2e4; }
+    .missing { color: #9a4b1f; background: #ffead8; }
+    .recommendation { margin: 20px 22px 16px; padding: 14px 16px; border-left: 3px solid #39785d; border-radius: 3px 13px 13px 3px; color: #294239; background: #f0f6f2; font-size: 15px; line-height: 1.5; }
+    .values { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding: 0 22px 20px; }
+    .value { min-width: 0; padding: 13px; border: 1px solid #e1e8e3; border-radius: 13px; background: #fff; }
+    .value span { display: block; margin-bottom: 5px; color: #7a8982; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    .value strong { display: block; overflow-wrap: anywhere; color: #1a2b25; font-size: 14px; }
+    footer { padding: 11px 22px; color: #77847f; background: #f6f8f6; border-top: 1px solid #e4e9e6; font-size: 11px; }
+    .waiting { display: grid; place-items: center; min-height: 160px; color: #66756f; }
+    @media (prefers-color-scheme: dark) {
+      main { border-color: #34463f; background: #111916; box-shadow: none; }
+      header { border-color: #34463f; background: linear-gradient(135deg,#193328,#18221e 68%,#202d23); }
+      h1 { color: #eff6f1; } .discipline { color: #a9bab2; }
+      .recommendation { color: #d8e8df; background: #1b2b24; }
+      .value { border-color: #34463f; background: #18211d; } .value strong { color: #edf4ef; }
+      footer { border-color: #34463f; background: #151e1a; }
+    }
+    @media (max-width: 560px) { header { grid-template-columns: auto minmax(0,1fr); padding: 18px; } .status { grid-column: 1/-1; justify-self: start; } .values { grid-template-columns: repeat(2,minmax(0,1fr)); padding-inline: 18px; } }
+  </style>
+</head>
+<body>
+  <main id="card"><div class="waiting">Checking the standard…</div></main>
+  <script type="module">
+    const card = document.querySelector('#card');
+    const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    const value = (label, content) => `<div class="value"><span>${label}</span><strong>${escapeHtml(content ?? '—')}</strong></div>`;
+    const render = (data) => {
+      if (!data || !data.discipline) return;
+      card.innerHTML = `
+        <header>
+          <div class="mark" aria-hidden="true">⌖</div>
+          <div><p class="eyebrow">CAD standards assistant</p><h1>${escapeHtml(data.element)}</h1><p class="discipline">${escapeHtml(data.discipline)}</p></div>
+          <div class="status ${data.standard_found ? 'found' : 'missing'}">${data.standard_found ? '✓ Approved' : '⚠ Review needed'}</div>
+        </header>
+        <section class="recommendation">${escapeHtml(data.recommendation)}</section>
+        <section class="values" aria-label="Layer standard values">
+          ${value('Layer', data.layer)}${value('Color', data.color)}${value('Linetype', data.linetype)}${value('Lineweight', data.lineweight_mm == null ? null : Number(data.lineweight_mm).toFixed(2) + ' mm')}
+        </section>
+        <footer>Source: ${escapeHtml(data.source)}</footer>`;
+    };
+
+    render(window.openai?.toolOutput);
+    let rpcId = 0;
+    const pending = new Map();
+    const request = (method, params) => new Promise((resolve, reject) => {
+      const id = ++rpcId;
+      pending.set(id, { resolve, reject });
+      window.parent.postMessage({ jsonrpc: '2.0', id, method, params }, '*');
+    });
+    window.addEventListener('message', (event) => {
+      if (event.source !== window.parent || event.data?.jsonrpc !== '2.0') return;
+      const message = event.data;
+      if (message.id != null && pending.has(message.id)) {
+        const handler = pending.get(message.id); pending.delete(message.id);
+        message.error ? handler.reject(message.error) : handler.resolve(message.result);
+      }
+      if (message.method === 'ui/notifications/tool-result') render(message.params?.structuredContent);
+    }, { passive: true });
+    request('ui/initialize', { appInfo: { name: 'cad-standards', version: '1.0.0' }, appCapabilities: {} })
+      .then(() => window.parent.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/initialized' }, '*'))
+      .catch(() => undefined);
+  </script>
+</body>
+</html>
