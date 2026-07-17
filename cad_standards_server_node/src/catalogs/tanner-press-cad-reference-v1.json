@@ -1,0 +1,16 @@
+{
+  "name": "Tanner Press CAD Reference Catalog",
+  "version": 1,
+  "source": "Tanner Press CAD Reference Catalog v1",
+  "records": [
+    { "discipline": "architectural", "element": "wall", "layer": "A-WALL", "color": 1, "linetype": "Continuous", "lineweight_mm": 0.35 },
+    { "discipline": "architectural", "element": "door", "layer": "A-DOOR", "color": 3, "linetype": "Continuous", "lineweight_mm": 0.25 },
+    { "discipline": "architectural", "element": "window", "layer": "A-GLAZ", "color": 4, "linetype": "Continuous", "lineweight_mm": 0.25 },
+    { "discipline": "civil", "element": "contour", "layer": "C-TOPO-MAJR", "color": 30, "linetype": "Continuous", "lineweight_mm": 0.25 },
+    { "discipline": "civil", "element": "property line", "layer": "C-PROP", "color": 6, "linetype": "Phantom", "lineweight_mm": 0.35 },
+    { "discipline": "electrical", "element": "lighting", "layer": "E-LITE-FIXT", "color": 2, "linetype": "Continuous", "lineweight_mm": 0.25 },
+    { "discipline": "electrical", "element": "power", "layer": "E-POWR", "color": 1, "linetype": "Continuous", "lineweight_mm": 0.25 },
+    { "discipline": "mechanical", "element": "duct", "layer": "M-DUCT", "color": 5, "linetype": "Continuous", "lineweight_mm": 0.35 },
+    { "discipline": "mechanical", "element": "equipment", "layer": "M-EQPM", "color": 3, "linetype": "Continuous", "lineweight_mm": 0.35 }
+  ]
+}

@@ -6,163 +6,18 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import OpenAI from "openai";
 import { z } from "zod";
 
-type Discipline = "architectural" | "civil" | "electrical" | "mechanical";
-
-interface StandardRecord {
-  layer: string;
-  color: number;
-  linetype: string;
-  lineweight_mm: number;
-}
-
-interface CadAnswer {
-  [key: string]: unknown;
-  recommendation: string;
-  discipline: Discipline;
-  element: string;
-  layer: string | null;
-  color: number | null;
-  linetype: string | null;
-  lineweight_mm: number | null;
-  standard_found: boolean;
-  source: string;
-}
+import { disciplineSchema, recommendStandard } from "./catalog.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ASSETS_DIR = path.resolve(ROOT_DIR, "assets");
 const TEMPLATE_URI = "ui://cad-standards/cad-standards-v1.html";
-
-dotenv.config({ path: path.resolve(ROOT_DIR, ".env.local") });
-
-const standards: Record<string, StandardRecord> = {
-  "architectural:wall": { layer: "A-WALL", color: 1, linetype: "Continuous", lineweight_mm: 0.35 },
-  "architectural:door": { layer: "A-DOOR", color: 3, linetype: "Continuous", lineweight_mm: 0.25 },
-  "architectural:window": { layer: "A-GLAZ", color: 4, linetype: "Continuous", lineweight_mm: 0.25 },
-  "civil:contour": { layer: "C-TOPO-MAJR", color: 30, linetype: "Continuous", lineweight_mm: 0.25 },
-  "civil:property line": { layer: "C-PROP", color: 6, linetype: "Phantom", lineweight_mm: 0.35 },
-  "electrical:lighting": { layer: "E-LITE-FIXT", color: 2, linetype: "Continuous", lineweight_mm: 0.25 },
-  "electrical:power": { layer: "E-POWR", color: 1, linetype: "Continuous", lineweight_mm: 0.25 },
-  "mechanical:duct": { layer: "M-DUCT", color: 5, linetype: "Continuous", lineweight_mm: 0.35 },
-  "mechanical:equipment": { layer: "M-EQPM", color: 3, linetype: "Continuous", lineweight_mm: 0.35 },
-};
-
-function normalize(value: string): string {
-  return value.trim().toLowerCase().replace(/[-_]+/g, " ").replace(/\s+/g, " ");
-}
-
-function lookupLayerStandard(discipline: Discipline, element: string) {
-  const match = standards[`${discipline}:${normalize(element)}`];
-  return match
-    ? { found: true, ...match, source: "Internal CAD Standards v1" }
-    : { found: false, source: "Internal CAD Standards v1" };
-}
-
-const outputFormat = {
-  type: "json_schema" as const,
-  name: "cad_standard_answer",
-  strict: true,
-  schema: {
-    type: "object",
-    properties: {
-      recommendation: { type: "string" },
-      discipline: { type: "string", enum: ["architectural", "civil", "electrical", "mechanical"] },
-      element: { type: "string" },
-      layer: { type: ["string", "null"] },
-      color: { type: ["integer", "null"] },
-      linetype: { type: ["string", "null"] },
-      lineweight_mm: { type: ["number", "null"] },
-      standard_found: { type: "boolean" },
-      source: { type: "string" },
-    },
-    required: [
-      "recommendation", "discipline", "element", "layer", "color", "linetype",
-      "lineweight_mm", "standard_found", "source",
-    ],
-    additionalProperties: false,
-  },
-};
-
-async function recommendStandard(
-  discipline: Discipline,
-  element: string,
-  notes?: string,
-): Promise<CadAnswer> {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not configured.");
-  }
-
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const tools = [
-    {
-      type: "function" as const,
-      name: "lookup_layer_standard",
-      description: "Look up the approved CAD layer, color, linetype, and lineweight.",
-      strict: true,
-      parameters: {
-        type: "object",
-        properties: {
-          discipline: { type: "string", enum: ["architectural", "civil", "electrical", "mechanical"] },
-          element: { type: "string" },
-        },
-        required: ["discipline", "element"],
-        additionalProperties: false,
-      },
-    },
-  ];
-
-  let response = await openai.responses.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-5.6",
-    reasoning: { effort: "low" },
-    instructions: [
-      "You are a CAD standards assistant.",
-      "Always consult lookup_layer_standard before answering.",
-      "Never invent an official layer designation.",
-      "If no record is found, return null standard values and recommend review by the CAD manager.",
-    ].join(" "),
-    input: `Discipline: ${discipline}\nElement: ${element}${notes ? `\nProject notes: ${notes}` : ""}`,
-    tools,
-    text: { format: outputFormat },
-  });
-
-  for (let turn = 0; turn < 4; turn += 1) {
-    const calls = response.output.filter((item) => item.type === "function_call");
-    if (calls.length === 0) {
-      return JSON.parse(response.output_text) as CadAnswer;
-    }
-
-    const toolOutputs = calls.map((call) => {
-      if (call.name !== "lookup_layer_standard") {
-        throw new Error(`Unknown tool requested: ${call.name}`);
-      }
-      const args = JSON.parse(call.arguments) as { discipline: Discipline; element: string };
-      return {
-        type: "function_call_output" as const,
-        call_id: call.call_id,
-        output: JSON.stringify(lookupLayerStandard(args.discipline, args.element)),
-      };
-    });
-
-    response = await openai.responses.create({
-      model: process.env.OPENAI_MODEL ?? "gpt-5.6",
-      reasoning: { effort: "low" },
-      previous_response_id: response.id,
-      input: toolOutputs,
-      tools,
-      text: { format: outputFormat },
-    });
-  }
-
-  throw new Error("The standards lookup did not complete within the allowed tool turns.");
-}
 
 function readWidgetHtml(): string {
   const widgetPath = path.join(ASSETS_DIR, "cad-standards.html");
@@ -172,16 +27,16 @@ function readWidgetHtml(): string {
   return fs.readFileSync(widgetPath, "utf8");
 }
 
-function createMcpServer(): McpServer {
+export function createMcpServer(): McpServer {
   const server = new McpServer(
     { name: "cad-standards", version: "1.0.0" },
     {
       instructions: [
-        "For questions about approved CAD layer names, colors, linetypes, or lineweights, prefer recommend_cad_standards over web search or general-purpose tools.",
+        "Use recommend_cad_standards when a user asks for a Tanner Press reference recommendation for a CAD layer name, color, linetype, or lineweight.",
         "Call it only after the discipline and drawing element are known; ask the user to clarify either value when missing.",
-        "Treat its returned catalog match as the authoritative project standard.",
-        "Use other tools only for work outside CAD standards or when the user explicitly requests another source.",
-        "This read-only tool does not modify drawings or files.",
+        "Present catalog matches as reference recommendations, not as project-specific approval or a universal industry requirement.",
+        "A missing match means the catalog has no recommendation for that discipline and element.",
+        "The tool is read-only and does not modify drawings or files.",
       ].join(" "),
     },
   );
@@ -191,11 +46,21 @@ function createMcpServer(): McpServer {
     "recommend_cad_standards",
     {
       title: "Recommend CAD Layer",
-      description: "Use this when a user needs the approved CAD layer properties for a drawing element.",
+      description: "Returns Tanner Press reference settings for a CAD layer when given a discipline and drawing element.",
       inputSchema: {
-        discipline: z.enum(["architectural", "civil", "electrical", "mechanical"]),
+        discipline: disciplineSchema,
         element: z.string().min(1).max(120).describe("Drawing element such as wall, door, lighting, or duct"),
-        notes: z.string().max(500).optional().describe("Optional project context"),
+      },
+      outputSchema: {
+        recommendation: z.string(),
+        discipline: disciplineSchema,
+        element: z.string(),
+        layer: z.string().nullable(),
+        color: z.number().int().nullable(),
+        linetype: z.string().nullable(),
+        lineweight_mm: z.number().nullable(),
+        standard_found: z.boolean(),
+        source: z.literal("Tanner Press CAD Reference Catalog v1"),
       },
       annotations: {
         readOnlyHint: true,
@@ -211,24 +76,16 @@ function createMcpServer(): McpServer {
         securitySchemes: [{ type: "noauth" }],
         ui: { resourceUri: TEMPLATE_URI },
         "openai/outputTemplate": TEMPLATE_URI,
-        "openai/toolInvocation/invoking": "Checking CAD standards…",
-        "openai/toolInvocation/invoked": "CAD standard checked",
+        "openai/toolInvocation/invoking": "Checking CAD references…",
+        "openai/toolInvocation/invoked": "CAD reference checked",
       },
     },
-    async ({ discipline, element, notes }) => {
-      try {
-        const answer = await recommendStandard(discipline, element, notes);
-        return {
-          content: [{ type: "text" as const, text: answer.recommendation }],
-          structuredContent: answer,
-        };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
-        return {
-          isError: true,
-          content: [{ type: "text" as const, text: `CAD standards lookup failed: ${message}` }],
-        };
-      }
+    async ({ discipline, element }) => {
+      const answer = recommendStandard(discipline, element);
+      return {
+        content: [{ type: "text" as const, text: answer.recommendation }],
+        structuredContent: answer,
+      };
     },
   );
 
@@ -238,13 +95,13 @@ function createMcpServer(): McpServer {
     TEMPLATE_URI,
     {
       mimeType: RESOURCE_MIME_TYPE,
-      description: "Approved CAD layer properties in a compact result card",
+      description: "Tanner Press CAD reference properties in a compact result card",
       _meta: {
         ui: {
           prefersBorder: true,
           csp: { connectDomains: [], resourceDomains: [] },
         },
-        "openai/widgetDescription": "Shows the approved CAD layer, color, linetype, and lineweight.",
+        "openai/widgetDescription": "Shows Tanner Press reference settings for a CAD layer, color, linetype, and lineweight.",
         "openai/widgetPrefersBorder": true,
       },
     },
@@ -280,6 +137,12 @@ app.all("/mcp", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`CAD Standards MCP server listening on http://localhost:${port}/mcp`);
-});
+const isMainModule = process.argv[1]
+  ? path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  : false;
+
+if (isMainModule) {
+  app.listen(port, () => {
+    console.log(`CAD Standards MCP server listening on http://localhost:${port}/mcp`);
+  });
+}

@@ -6,7 +6,8 @@
   "description": "CAD standards assistant for ChatGPT Apps SDK",
   "scripts": {
     "start": "tsx src/server.ts",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test src/server.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "^1.0.1",
