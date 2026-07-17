@@ -19,6 +19,7 @@ const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const ASSETS_DIR = path.resolve(ROOT_DIR, "assets");
 const TEMPLATE_URI = "ui://cad-standards/cad-standards-v1.html";
 const PUBLIC_ORIGIN = "https://mcp.dwginspect.com";
+const OPENAI_APPS_CHALLENGE = "McVu5vfu78PI6rZgLh56V0QuZgJ6nZ_mF6YDhTR6ehk";
 
 function readWidgetHtml(): string {
   const widgetPath = path.join(ASSETS_DIR, "cad-standards.html");
@@ -126,6 +127,9 @@ app.get("/", (_req, res) => {
 </html>`);
 });
 app.get("/health", (_req, res) => res.json({ status: "ok", service: "cad-standards" }));
+app.get("/.well-known/openai-apps-challenge", (_req, res) => {
+  res.type("text/plain").send(OPENAI_APPS_CHALLENGE);
+});
 app.get("/llms.txt", (_req, res) => {
   res.type("text/plain").send(`# CAD Standards MCP
 

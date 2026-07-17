@@ -109,8 +109,9 @@ test("serves agent discovery files from the public origin", async () => {
   const { port } = listener.address() as AddressInfo;
 
   try {
-    const [root, llms, robots, sitemap, agents] = await Promise.all([
+    const [root, challenge, llms, robots, sitemap, agents] = await Promise.all([
       fetch(`http://127.0.0.1:${port}/`),
+      fetch(`http://127.0.0.1:${port}/.well-known/openai-apps-challenge`),
       fetch(`http://127.0.0.1:${port}/llms.txt`),
       fetch(`http://127.0.0.1:${port}/robots.txt`),
       fetch(`http://127.0.0.1:${port}/sitemap.xml`),
@@ -119,6 +120,11 @@ test("serves agent discovery files from the public origin", async () => {
 
     assert.equal(root.status, 200);
     assert.match(await root.text(), /CAD Standards MCP/);
+    assert.match(challenge.headers.get("content-type") ?? "", /^text\/plain/);
+    assert.equal(
+      await challenge.text(),
+      "McVu5vfu78PI6rZgLh56V0QuZgJ6nZ_mF6YDhTR6ehk",
+    );
     assert.match(llms.headers.get("content-type") ?? "", /^text\/plain/);
     assert.match(await llms.text(), /https:\/\/mcp\.dwginspect\.com\/mcp/);
     assert.match(await robots.text(), /Allow: \//);

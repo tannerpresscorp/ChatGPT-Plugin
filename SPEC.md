@@ -74,3 +74,4 @@ Recommend a CAD layer standard:
 - **Hosting:** Google Cloud Run with a managed TLS certificate.
 - **DNS:** The `mcp` CNAME is managed through GoDaddy and targets `ghs.googlehosted.com`.
 - **Discovery:** The origin serves a landing page, `llms.txt`, `llms-full.txt`, `robots.txt`, XML and Markdown sitemaps, and `AGENTS.md` without changing the MCP tool contract.
+- **OpenAI verification:** `/.well-known/openai-apps-challenge` serves the assigned verification token as plain text.
