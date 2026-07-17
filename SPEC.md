@@ -30,8 +30,8 @@ CAD Standards Assistant helps architects and engineers quickly retrieve approved
 
 - **Product:** Standalone ChatGPT app with an MCP server and result widget.
 - **Data:** Small in-memory authoritative catalog, intended to be replaced later by the organization’s standards database or service.
-- **AI:** OpenAI Responses API interprets requests and formats strict structured results.
-- **Authentication:** No app-user authentication; the server's OpenAI API key remains private in Cloud Run.
+- **Lookup:** The MCP server normalizes the requested element and performs a deterministic catalog lookup.
+- **Authentication:** No app-user authentication is required.
 - **Supported disciplines:** Architectural, civil, electrical, and mechanical.
 - **Constraints:** Read-only; no drawing-file access; no invented standards when the catalog has no match.
 
@@ -66,3 +66,11 @@ Recommend a CAD layer standard:
 - Test an exact catalog match.
 - Test normalized element input.
 - Test missing-catalog behavior and verify that no standard values are invented.
+
+## Production Endpoint
+
+- **Canonical origin:** `https://mcp.dwginspect.com`
+- **MCP endpoint:** `https://mcp.dwginspect.com/mcp`
+- **Hosting:** Google Cloud Run with a managed TLS certificate.
+- **DNS:** The `mcp` CNAME is managed through GoDaddy and targets `ghs.googlehosted.com`.
+- **Discovery:** The origin serves a landing page, `llms.txt`, `llms-full.txt`, `robots.txt`, XML and Markdown sitemaps, and `AGENTS.md` without changing the MCP tool contract.

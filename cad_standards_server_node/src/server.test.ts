@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import type { AddressInfo } from "node:net";
 import test from "node:test";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
-import { createMcpServer } from "./server.js";
+import { app, createMcpServer } from "./server.js";
 
 async function withClient<T>(run: (client: Client) => Promise<T>): Promise<T> {
   const server = createMcpServer();
@@ -99,4 +101,31 @@ test("returns null properties instead of inventing a missing standard", async ()
       source: "Tanner Press CAD Reference Catalog v1",
     });
   });
+});
+
+test("serves agent discovery files from the public origin", async () => {
+  const listener = app.listen(0, "127.0.0.1");
+  await once(listener, "listening");
+  const { port } = listener.address() as AddressInfo;
+
+  try {
+    const [root, llms, robots, sitemap, agents] = await Promise.all([
+      fetch(`http://127.0.0.1:${port}/`),
+      fetch(`http://127.0.0.1:${port}/llms.txt`),
+      fetch(`http://127.0.0.1:${port}/robots.txt`),
+      fetch(`http://127.0.0.1:${port}/sitemap.xml`),
+      fetch(`http://127.0.0.1:${port}/AGENTS.md`),
+    ]);
+
+    assert.equal(root.status, 200);
+    assert.match(await root.text(), /CAD Standards MCP/);
+    assert.match(llms.headers.get("content-type") ?? "", /^text\/plain/);
+    assert.match(await llms.text(), /https:\/\/mcp\.dwginspect\.com\/mcp/);
+    assert.match(await robots.text(), /Allow: \//);
+    assert.match(await sitemap.text(), /<lastmod>2026-07-17<\/lastmod>/);
+    assert.match(await agents.text(), /recommend_cad_standards/);
+  } finally {
+    listener.close();
+    await once(listener, "close");
+  }
 });
