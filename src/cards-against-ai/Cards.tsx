@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { getAssetsBaseUrl } from "./api-base-url";
-import cardBackPattern from "./assets/card-back-pattern.png?inline";
 
 /**
  * The width and height of a card in pixels.
@@ -17,10 +15,12 @@ export const CARD_DEALER_SPOT = {
   rotation: 0,
 } as const;
 
-const assetsBaseUrl = getAssetsBaseUrl();
-const cardBackPatternUrl = assetsBaseUrl
-  ? new URL(cardBackPattern, assetsBaseUrl).toString()
-  : cardBackPattern;
+const cardBackPatternStyle: React.CSSProperties = {
+  backgroundColor: "rgb(15 23 42)",
+  backgroundImage:
+    "radial-gradient(circle at 18px 18px, rgba(255,255,255,0.28) 2px, transparent 2.5px), linear-gradient(135deg, rgba(255,255,255,0.18) 1.5px, transparent 1.5px)",
+  backgroundSize: "36px 36px, 72px 72px",
+};
 
 export interface CardProps {
   x: number;
@@ -79,8 +79,8 @@ export function Card({ x, y, rotation, faceUp, children }: CardProps) {
         {/* Back face */}
         <div className="pointer-events-none absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)]">
           <div
-            className="h-full w-full rounded-2xl border border-white bg-center bg-cover shadow-[0_12px_30px_-10px_rgba(15,23,42,0.55)]"
-            style={{ backgroundImage: `url(${cardBackPatternUrl})` }}
+            className="h-full w-full rounded-2xl border border-white bg-center shadow-[0_12px_30px_-10px_rgba(15,23,42,0.55)]"
+            style={cardBackPatternStyle}
           />
         </div>
       </div>
