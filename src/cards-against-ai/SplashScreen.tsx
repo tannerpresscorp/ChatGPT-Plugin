@@ -1,11 +1,4 @@
-import cardBackPattern from "./assets/card-back-pattern.png?inline";
-import { getAssetsBaseUrl } from "./api-base-url";
 import type { GameStatus } from "./types";
-
-const assetsBaseUrl = getAssetsBaseUrl();
-const cardBackPatternUrl = assetsBaseUrl
-  ? new URL(cardBackPattern, assetsBaseUrl).toString()
-  : cardBackPattern;
 
 interface SplashScreenProps {
   status: GameStatus;
@@ -21,9 +14,10 @@ export function SplashScreen({ status, onStart }: SplashScreenProps) {
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.04] dark:opacity-[0.06]"
         style={{
-          backgroundImage: `url(${cardBackPatternUrl})`,
-          backgroundSize: "200px",
-          backgroundRepeat: "repeat",
+          backgroundImage:
+            "radial-gradient(circle at 24px 24px, currentColor 2px, transparent 2.5px), linear-gradient(135deg, currentColor 1.5px, transparent 1.5px)",
+          backgroundSize: "48px 48px, 96px 96px",
+          color: "rgb(15 23 42)",
         }}
       />
 
